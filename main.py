@@ -1,9 +1,10 @@
 import cv2
+import numpy as np
 
 threshold = 0.5  # threshold value
 camera_port = 1  # camera id
 
-
+nms_threshold = 0.5
 cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
 cap.set(3, 640)
 cap.set(4, 480)
@@ -25,12 +26,19 @@ while True:
     success, img = cap.read()
     classIds, confs, bbox = net.detect(img, confThreshold=threshold)
     print(classIds, bbox)
+    bbox = list(bbox)
+    confs = list(np.array(confs).reshape(1, -1)[0])  # converting a np array into a list
+    confs = list(map(float, confs))
+    indices = cv2.dnn.NMSBoxes(bbox, confs, threshold, nms_threshold)  # NonMaximumSupression
 
-    if len(classIds) != 0:
-        for classId, confidence, box in zip(classIds.flatten(), confs.flatten(), bbox):
-            cv2.rectangle(img, box, color=(0, 255, 0), thickness=3)
-            cv2.putText(img, classNames[classId-1], (box[0]+10, box[1]+30),
-                        cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
+    for i in indices:
+        i = i[0]
+
+        box = bbox[i]
+        x, y, w, h = box[0], box[1], box[2], box[3]
+        cv2.rectangle(img, (x, y), (x+w, y+h), color=(0, 255, 0), thickness=2)
+        cv2.putText(img, classNames[classIds[i][0] - 1], (box[0] + 10, box[1] + 30),
+                    cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
 
     cv2.imshow("Output", img)
     cv2.waitKey(1)
