@@ -3,13 +3,12 @@ import numpy as np
 from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog as fd
+from tkinter import messagebox
 
 
 def main():
-    threshold = 0.6  # threshold value
-    camera_port = 1  # camera id
+    threshold = 0.5  # threshold value
 
-    nms_threshold = 0.5
 
     with open('coco.names', 'rt') as f:
         classNames = f.read().rstrip('\n').split('\n')
@@ -32,6 +31,7 @@ def main():
 
             img = cv2.imread(imgurl)
 
+
             net = cv2.dnn_DetectionModel(weightsPath, configPath)
             net.setInputSize(320, 320)
             net.setInputScale(1.0 / 127.5)
@@ -39,19 +39,24 @@ def main():
             net.setInputSwapRB(True)
 
             classIds, confs, bbox = net.detect(img, confThreshold=threshold)
-            print(classIds, bbox)
 
             if len(classIds) != 0:
                 for classId, confidence, box in zip(classIds.flatten(), confs.flatten(), bbox):
                     cv2.rectangle(img, box, color=(0, 255, 0), thickness=3)
                     cv2.putText(img, classNames[classId - 1], (box[0] + 10, box[1] + 30),
                                 cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
+                    cv2.putText(img, str(round(confidence, 2)), (box[0] + 10, box[1] + 50),
+                                cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
+
+
 
                 cv2.imshow("Output", img)
                 cv2.waitKey(1)
+            elif len(classIds) == 0:
+                messagebox.showerror(title='Error', message='No objects detected!')
 
-        newWindow = Toplevel(root)
-        newWindow.title('Диплом')
+        newWindow = Toplevel()
+        newWindow.title('Picture Detection')
         newWindow.geometry("250x100")
         newWindow.resizable(0, 0)
         newWindow.columnconfigure(0, weight=0)
@@ -63,14 +68,17 @@ def main():
                 ('image', '.jpg'),
                 ('image', '.png')
             ])
-            print(type(filename))
             TextArea.config(state=NORMAL)
             TextArea.delete(0, END)
             TextArea.insert(0, filename)
             TextArea.config(state=DISABLED)
 
         def pic_detection_init():
-            pic_detection(TextArea.get())
+            try:
+                pic_detection(TextArea.get())
+            except:
+                messagebox.showerror(title='Error', message='Incorrect filepath')
+
 
         FileLabel = ttk.Label(newWindow, text="Picture:")
         FileLabel.grid(column=0, row=0, sticky=W, padx=5, pady=5)
@@ -84,8 +92,9 @@ def main():
         newWindow.mainloop()
 
     def cam_detection():
-
-        cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
+        camera_port = 0  # camera id
+        nms_threshold = 0.5
+        cap = cv2.VideoCapture(camera_port)
         cap.set(3, 640)
         cap.set(4, 480)
 
@@ -96,9 +105,8 @@ def main():
         net.setInputSwapRB(True)
 
         while True:
-            success, img = cap.read()
+            _, img = cap.read()
             classIds, confs, bbox = net.detect(img, confThreshold=threshold)
-            print(classIds, bbox)
             bbox = list(bbox)
             confs = list(np.array(confs).reshape(1, -1)[0])  # converting a np array into a list
             confs = list(map(float, confs))
@@ -112,8 +120,8 @@ def main():
                 cv2.rectangle(img, (x, y), (x + w, y + h), color=(0, 255, 0), thickness=2)
                 cv2.putText(img, classNames[classIds[i][0] - 1], (box[0] + 10, box[1] + 30),
                             cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
-                #cv2.putText(img, str(round(confs[i][0] * 100, 2)), (box[0] + 200, box[1] + 30),
-                #            cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
+                cv2.putText(img, str(round(confs[i], 2)), (box[0] + 10, box[1] + 50),
+                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2)
 
             cv2.imshow("Output", img)
             cv2.waitKey(1)
